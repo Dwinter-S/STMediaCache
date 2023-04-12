@@ -44,14 +44,24 @@ class CacheConfiguration: Codable {
         return bytes / 1024.0 / time
     }
     
+    var isDownloadComplete: Bool {
+        return downloadedBytes == contentInfo?.contentLength
+    }
+    
     static func createAndSaveDownloadedConfigurationForURL(_ url: URL) {
         
     }
     
     static func configurationWithFileURL(_ fileURL: URL) -> CacheConfiguration {
-        let configFileURL = fileURL.appendingPathExtension("mt_cfg")
-        if let value = try? JSONDecoder().decode(CacheConfiguration.self, from: Data(contentsOf: configFileURL)) {
+        let configFileURL = fileURL.deletingPathExtension().appendingPathExtension("cfg")
+        if FileManager.default.fileExists(atPath: configFileURL.path()),
+           let data = FileManager.default.contents(atPath: configFileURL.path()),
+           let value = try? JSONDecoder().decode(CacheConfiguration.self, from: data) {
+            value.fileURL = configFileURL
             return value
+        }
+        if !FileManager.default.fileExists(atPath: configFileURL.path()) {
+            FileManager.default.createFile(atPath: configFileURL.path(), contents: nil)
         }
         return CacheConfiguration(fileURL: configFileURL)
     }
@@ -64,9 +74,6 @@ class CacheConfiguration: Codable {
     func save() {
         do {
             let data = try JSONEncoder().encode(self)
-            if FileManager.default.fileExists(atPath: fileURL.path()) {
-                FileManager.default.createFile(atPath: fileURL.path(), contents: nil)
-            }
             try data.write(to: fileURL)
         } catch {
             print("encode error: \(error.localizedDescription)")

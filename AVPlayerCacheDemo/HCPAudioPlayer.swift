@@ -491,6 +491,7 @@ class HCPAudioPlayer: NSObject {
                         }
                     case .failed:
                         var error: Error
+                        print("????\(player.currentItem?.errorLog())")
                         if let err = player.currentItem?.error {
                             error = err
                         } else {

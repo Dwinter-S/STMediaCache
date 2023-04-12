@@ -15,13 +15,10 @@ class STMediaDownloader: NSObject {
     var contentInfo: ContentInfo?
     let url: URL
     let cacheWorker: CacheWorker
-    let loadingRequest: AVAssetResourceLoadingRequest
-    var actions: [CacheAction] = []
-    var canSaveToCache = true
-    var downloadToEnd = false
     var startOffset = 0
-    var task: URLSessionDataTask?
     var isCancelled = false
+    var requestTasksMap = [AVAssetResourceLoadingRequest: [LoadingTask]]()
+    var bufferDataMap = [URLSessionDataTask : Data]()
     
     lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.default
@@ -29,15 +26,17 @@ class STMediaDownloader: NSObject {
         return session
     }()
     
-    init(url: URL, loadingRequest: AVAssetResourceLoadingRequest, cacheWorker: CacheWorker) {
-        self.url = url
-        self.loadingRequest = loadingRequest
-        self.cacheWorker = cacheWorker
-        self.contentInfo = cacheWorker.cacheConfiguration.contentInfo
-        MediaDownloaderStatus.share.addURL(url)
+    deinit {
+        cancel()
     }
     
-    func startDownload() {
+    init(url: URL) {
+        self.url = url
+        self.cacheWorker = CacheWorker(url: url)
+        self.contentInfo = self.cacheWorker.cacheConfiguration.contentInfo
+    }
+        
+    func addRequest(_ loadingRequest: AVAssetResourceLoadingRequest) {
         if let dataRequest = loadingRequest.dataRequest {
             var offset = Int(dataRequest.requestedOffset)
             var length = dataRequest.requestedLength
@@ -49,33 +48,23 @@ class STMediaDownloader: NSObject {
             }
             
             let range = NSRange(location: offset, length: length)
-            actions = cacheWorker.cachedDataActionsForRange(range)
-//            actions = [CacheAction(actionType: .remote, range: range)]
-            processActions()
-//            downloadTaskFromOffset(offset, length: length)
+            requestTasksMap[loadingRequest] = cacheWorker.cachedDataActionsForRange(range)
+//            for action in actions {
+//                print("action:\(action.taskType) \(action.range)")
+//            }
+            processRequests()
         }
     }
     
-    func downloadTaskFromOffset(_ offset: Int, length: Int) {
-        startOffset = offset
-        var request = URLRequest(url: url)
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        let range = "bytes=\(offset)-\(offset + length - 1)"
-        request.setValue(range, forHTTPHeaderField: "Range")
-        task = session.dataTask(with: request)
-        task?.resume()
-    }
-    
-    func downloadTaskFromOffsetToEnd(_ fromOffset: Int) {
-        guard let contentInfo = contentInfo else {
-            return
-        }
-        downloadTaskFromOffset(fromOffset, length: contentInfo.contentLength - fromOffset)
-    }
-    
-    func downloadFromStartToEnd() {
-        downloadToEnd = true
-        downloadTaskFromOffset(0, length: 2)
+    func removeRequest(_ request: AVAssetResourceLoadingRequest) {
+//        if let downloader = downloaders.first(where: ({ $0.loadingRequest == request })) {
+//            downloaders.remove(downloader)
+//            print("????remove:\(downloaders.count)")
+//            //            if request.isFinished {
+//            downloader.cancel()
+//            request.finishLoading(with: NSError(domain: "com.resourceloader", code: -3, userInfo: [NSLocalizedDescriptionKey : "Resource loader cancelled"]))
+//            //            }
+//        }
     }
     
     func cancel() {
@@ -84,14 +73,17 @@ class STMediaDownloader: NSObject {
         isCancelled = true
     }
     
-    func fillInContentInformationRequest(_ contentInformationRequest: AVAssetResourceLoadingContentInformationRequest?, response: URLResponse) {
+    func fillInContentInformationRequest(_ contentInformationRequest: AVAssetResourceLoadingContentInformationRequest?, response: URLResponse?) {
         guard let contentInformationRequest = contentInformationRequest else { return }
+        if let contentInfo = contentInfo {
+            setContentInfo(contentInfo)
+            return
+        }
         if let httpResponse = response as? HTTPURLResponse {
             let contentInfo = ContentInfo()
             self.contentInfo = contentInfo
             let acceptRange = httpResponse.allHeaderFields["Accept-Ranges"] as? String
             contentInfo.isByteRangeAccessSupported = acceptRange == "bytes"
-            // fix swift allHeaderFields NO! case insensitive
             var contentLength = 0
             var contentRange = httpResponse.allHeaderFields["content-range"] as? String
             contentRange = contentRange ?? httpResponse.allHeaderFields["Content-Range"] as? String
@@ -108,28 +100,43 @@ class STMediaDownloader: NSObject {
                     contentInfo.contentType = takeUnretainedValue as String
                 }
             }
+            cacheWorker.setContentInfo(contentInfo)
+            setContentInfo(contentInfo)
+        }
+        
+        func setContentInfo(_ contentInfo: ContentInfo) {
             contentInformationRequest.isByteRangeAccessSupported = contentInfo.isByteRangeAccessSupported
             contentInformationRequest.contentType = contentInfo.contentType
             contentInformationRequest.contentLength = Int64(contentInfo.contentLength)
-            cacheWorker.setContentInfo(contentInfo)
         }
     }
     
-    func processActions() {
-        guard !isCancelled, let action = popFirstActionInList() else {
+    func processRequests() {
+        for (loadingRequest, _) in requestTasksMap {
+            processRequest(loadingRequest)
+        }
+    }
+    
+    func processRequest(_ loadingRequest: AVAssetResourceLoadingRequest) {
+        guard !isCancelled else {
             return
         }
-        if action.actionType == .local {
+        guard var tasks = requestTasksMap[loadingRequest], !tasks.isEmpty else {
+            finishLoadingRequest(loadingRequest, error: nil)
+            return
+        }
+        let task = tasks.removeFirst()
+        requestTasksMap[loadingRequest] = tasks
+        if task.taskType == .local {
             do {
-                if let data = try cacheWorker.cachedDataForRange(action.range) {
-                    print("STPlayerItem: 本地缓存:\(data.count)")
+                if let data = try cacheWorker.cachedDataForRange(task.range) {
                     startOffset += data.count
+                    fillInContentInformationRequest(loadingRequest.contentInformationRequest, response: nil)
                     loadingRequest.dataRequest?.respond(with: data)
-                    DispatchQueue.global().async {
-                        self.processActions()
-                    }
+                    processRequest(loadingRequest)
+                    //                    print("STPlayerItem: 本地缓存\(data.count)")
                 } else {
-                    print("STPlayerItem: 本地缓存空")
+                    print("STPlayerItem: 本地缓存空\(task.range)")
                 }
             } catch {
                 delegate?.didFinishedWithError(error)
@@ -137,32 +144,42 @@ class STMediaDownloader: NSObject {
             }
             
         } else {
-            let fromOffset = action.range.location
-            let endOffset = action.range.location + action.range.length - 1
+            let fromOffset = task.range.location
+            let endOffset = task.range.location + task.range.length - 1
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
             let range = "bytes=\(fromOffset)-\(endOffset)"
             request.setValue(range, forHTTPHeaderField: "Range")
-            startOffset = action.range.location
-            task = session.dataTask(with: request)
-            task?.resume()
+            startOffset = task.range.location
+            task.dataTask = session.dataTask(with: request)
+            task.dataTask?.resume()
             print("STPlayerItem: 开始请求Range:\(range)")
         }
-        
     }
     
-    func popFirstActionInList() -> CacheAction? {
-        var action: CacheAction?
-        synced(self) {
-            if let act = self.actions.first {
-                action = act
-                self.actions.removeFirst()
+    func finishLoadingRequest(_ loadingRequest: AVAssetResourceLoadingRequest?, error: Error?) {
+        guard let loadingRequest = loadingRequest else { return }
+        if error != nil {
+            loadingRequest.finishLoading(with: error)
+        } else {
+            loadingRequest.finishLoading()
+        }
+        requestTasksMap.removeValue(forKey: loadingRequest)
+    }
+    
+    func cacheBufferData(_ bufferData: Data) {
+        let range = NSRange(location: startOffset, length: bufferData.count)
+        cacheWorker.cacheData(bufferData, for: range)
+        startOffset += bufferData.count
+    }
+    
+    func getLoadingRequest(dataTask: URLSessionDataTask) -> AVAssetResourceLoadingRequest? {
+        for (loadingRequest, tasks) in requestTasksMap {
+            if let _ = tasks.firstIndex(where: { $0.dataTask == dataTask }) {
+                return loadingRequest
             }
         }
-        if action == nil {
-//            delegate?.didFinishedWithError(nil)
-        }
-        return action
+        return nil
     }
     
 }
@@ -170,52 +187,46 @@ class STMediaDownloader: NSObject {
 extension STMediaDownloader: URLSessionDataDelegate {
     
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        let card = URLCredential(trust: challenge.protectionSpace.serverTrust!)
-        completionHandler(.useCredential, card)
+        completionHandler(.useCredential, URLCredential(trust: challenge.protectionSpace.serverTrust!))
     }
     
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
-//        print("urlSession didReceive response: \(response)")
-        fillInContentInformationRequest(loadingRequest.contentInformationRequest, response: response)
-        if canSaveToCache {
-            cacheWorker.startWritting()
-        }
+        let loadingRequest = getLoadingRequest(dataTask: dataTask)
+        fillInContentInformationRequest(loadingRequest?.contentInformationRequest, response: response)
+        bufferDataMap[dataTask] = Data()
+        cacheWorker.startWritting()
         completionHandler(.allow)
     }
     
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-//        print("urlSession didReceiveData: \(data.count)")
-        if isCancelled {
+        let loadingRequest = getLoadingRequest(dataTask: dataTask)
+        var bufferData = bufferDataMap[dataTask]!
+        bufferData.append(data)
+        bufferDataMap[dataTask] = bufferData
+        guard bufferData.count > 1024 * 1024 else {
             return
         }
-        if canSaveToCache {
-            let range = NSRange(location: startOffset, length: data.count)
-            cacheWorker.cacheData(data, for: range)
-            cacheWorker.save()
-        }
-//        print("STPlayerItem: didReceive data:\(data.count) startOffset:\(startOffset)")
-        startOffset += data.count
-        loadingRequest.dataRequest?.respond(with: data)
+//        print("didReceiveData: \(startOffset) \(bufferData.count)")
+        cacheBufferData()
+        cacheWorker.save()
+        loadingRequest?.dataRequest?.respond(with: bufferData)
+        bufferDataMap[dataTask] = Data()
     }
     
+    
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-//        print("urlSession didCompleteWithError: \(error)")
+//        print("completeDidReceiveData:\(bufferData)")
         MediaDownloaderStatus.share.removeURL(url)
         
-        if canSaveToCache {
-            cacheWorker.finishWritting()
-            cacheWorker.save()
-        }
+        cacheBufferData()
+        cacheWorker.finishWritting()
+        cacheWorker.save()
+        let loadingRequest = getLoadingRequest(dataTask: task as! URLSessionDataTask)
+        loadingRequest?.dataRequest?.respond(with: bufferData)
         if (error as? NSError)?.code == NSURLErrorCancelled {
             return
         }
-        if error == nil {
-            loadingRequest.finishLoading()
-            processActions()
-        } else {
-            loadingRequest.finishLoading(with: error)
-        }
+        finishLoadingRequest(loadingRequest, error: error)
         delegate?.didFinishedWithError(error)
-        
     }
 }

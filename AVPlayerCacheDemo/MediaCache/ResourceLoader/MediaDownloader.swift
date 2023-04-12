@@ -59,7 +59,7 @@ class MediaDownloader {
     func downloadTaskFromOffset(_ fromOffset: Int, length: Int) {
         let range = NSRange(location: fromOffset, length: length)
         let actions = cacheWorker.cachedDataActionsForRange(range)
-//        let actions = [CacheAction(actionType: .remote, range: range)]
+//        let actions = [LoadingTask(taskType: .remote, range: range)]
         actionWorker = ActionWorker(actions: actions, url: url, cacheWorker: cacheWorker)
         actionWorker?.canSaveToCache = saveToCache
         actionWorker?.delegate = self

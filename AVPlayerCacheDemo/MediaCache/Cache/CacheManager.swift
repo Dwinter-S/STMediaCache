@@ -7,6 +7,7 @@
 
 import Foundation
 import CommonCrypto
+import CoreServices
 
 class CacheManager {
     static let shared = CacheManager()
@@ -28,8 +29,40 @@ class CacheManager {
         return CacheConfiguration.configurationWithFileURL(fileURL)
     }
     
+    func mimeType(pathExtension: String) -> String {
+        if let uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
+                                                           pathExtension as NSString,
+                                                           nil)?.takeRetainedValue() {
+            if let mimetype = UTTypeCopyPreferredTagWithClass(uti, kUTTagClassMIMEType)?
+                .takeRetainedValue() {
+                return mimetype as String
+            }
+        }
+        return "application/octet-stream"
+    }
+    
+    func getContentTypeString(mimeType: String?) -> String? {
+        var contentTypeString: String?
+        if let mimeType = mimeType {
+            let contentType = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, mimeType as CFString, nil)
+            if let takeUnretainedValue = contentType?.takeUnretainedValue() {
+                contentTypeString = takeUnretainedValue as String
+            }
+        }
+        return contentTypeString
+    }
+    
     func addCacheFile() {
         
+    }
+    
+    func cleanCache() {
+        do {
+            try FileManager.default.removeItem(at: cacheDirectory)
+            print("清理缓存成功")
+        } catch {
+            print("清理缓存失败:\(error.localizedDescription)")
+        }
     }
 }
 

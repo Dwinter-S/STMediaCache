@@ -37,14 +37,18 @@ class CacheWorker {
         if !fileManager.fileExists(atPath: cacheFolder.path()) {
             do {
                 try fileManager.createDirectory(at: cacheFolder, withIntermediateDirectories: true)
-                if !fileManager.fileExists(atPath: fileURL.path()) {
-                    fileManager.createFile(atPath: fileURL.path(), contents: nil)
-                }
-                try readFileHandle = FileHandle(forReadingFrom: fileURL)
-                try writeFileHandle = FileHandle(forWritingTo: fileURL)
             } catch {
-                print("CacheWorker initError:\(error.localizedDescription)")
+                print("createDirectory error:\(error.localizedDescription)")
             }
+        }
+        if !fileManager.fileExists(atPath: fileURL.path()) {
+            fileManager.createFile(atPath: fileURL.path(), contents: nil)
+        }
+        do {
+            try readFileHandle = FileHandle(forReadingFrom: fileURL)
+            try writeFileHandle = FileHandle(forWritingTo: fileURL)
+        } catch {
+            print("cacheWorker init error:\(error.localizedDescription)")
         }
     }
     
@@ -57,7 +61,7 @@ class CacheWorker {
                 writeBytes += data.count
                 self.cacheConfiguration.addCacheFragment(range)
             } catch {
-                
+                print("缓存失败:\(error.localizedDescription)")
             }
         }
     }
@@ -76,9 +80,9 @@ class CacheWorker {
         return data
     }
     
-    func cachedDataActionsForRange(_ range: NSRange) -> [CacheAction] {
+    func cachedDataActionsForRange(_ range: NSRange) -> [LoadingTask] {
         let cachedFragments = cacheConfiguration.cacheFragments
-        var actions = [CacheAction]()
+        var actions = [LoadingTask]()
         if range.location == NSNotFound {
             return actions
         }
@@ -92,7 +96,7 @@ class CacheWorker {
                     let offsetLocation = intersectionRange.location + offset
                     let maxLocation = intersectionRange.location + intersectionRange.length
                     let length = (offsetLocation + packageLength) > maxLocation ? (maxLocation - offsetLocation) : packageLength
-                    let action = CacheAction(actionType: .local, range: NSRange(location: offsetLocation, length: length))
+                    let action = LoadingTask(taskType: .local, range: NSRange(location: offsetLocation, length: length))
                     actions.append(action)
                 }
             } else if fragmentRange.location >= endOffset {
@@ -101,27 +105,27 @@ class CacheWorker {
         }
         
         if actions.isEmpty {
-            actions.append(CacheAction(actionType: .remote, range: range))
+            actions.append(LoadingTask(taskType: .remote, range: range))
         } else {
-            var localRemoteActions = [CacheAction]()
+            var localRemoteActions = [LoadingTask]()
             for (index, action) in actions.enumerated() {
                 let actionRange = action.range
                 if index == 0 {
                     if range.location < actionRange.location {
-                        localRemoteActions.append(CacheAction(actionType: .remote, range: NSRange(location: range.location, length: actionRange.location - range.location)))
+                        localRemoteActions.append(LoadingTask(taskType: .remote, range: NSRange(location: range.location, length: actionRange.location - range.location)))
                     }
                 } else {
                     let lastAction = localRemoteActions.last!
                     let lastOffset = lastAction.range.location + lastAction.range.length
                     if actionRange.location > lastOffset {
-                        localRemoteActions.append(CacheAction(actionType: .remote, range: NSRange(location: lastOffset, length: actionRange.location - lastOffset)))
+                        localRemoteActions.append(LoadingTask(taskType: .remote, range: NSRange(location: lastOffset, length: actionRange.location - lastOffset)))
                     }
                 }
                 localRemoteActions.append(action)
                 if index == actions.count - 1 {
                     let localEndOffset = actionRange.location + actionRange.length
                     if endOffset > localEndOffset {
-                        localRemoteActions.append(CacheAction(actionType: .remote, range: NSRange(location: localEndOffset, length: endOffset - localEndOffset)))
+                        localRemoteActions.append(LoadingTask(taskType: .remote, range: NSRange(location: localEndOffset, length: endOffset - localEndOffset)))
                     }
                 }
             }

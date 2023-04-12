@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A4579F629E6614D00580FAE /* STHLSManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4579F529E6614D00580FAE /* STHLSManager.swift */; };
+		9A4579FA29E6B0B200580FAE /* LoadingTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4579F929E6B0B200580FAE /* LoadingTask.swift */; };
 		9A9D2B0C29DFFEFD00F50371 /* STAssetResourceLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9D2B0B29DFFEFD00F50371 /* STAssetResourceLoader.swift */; };
 		9A9D2B0E29E0049B00F50371 /* STMediaDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9D2B0D29E0049B00F50371 /* STMediaDownloader.swift */; };
 		9AA1B65B29D55920000F3A27 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA1B65A29D55920000F3A27 /* AppDelegate.swift */; };
@@ -27,7 +29,6 @@
 		9AC49D4629DC345B0085B5EE /* ResourceLoadingRequestWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC49D4529DC345B0085B5EE /* ResourceLoadingRequestWorker.swift */; };
 		9AC49D4829DC40320085B5EE /* ContentInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC49D4729DC40320085B5EE /* ContentInfo.swift */; };
 		9AC49D4A29DC41620085B5EE /* ActionWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC49D4929DC41620085B5EE /* ActionWorker.swift */; };
-		9AC49D4C29DC41980085B5EE /* CacheAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC49D4B29DC41980085B5EE /* CacheAction.swift */; };
 		9AC49D4E29DE58870085B5EE /* CacheConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC49D4D29DE58870085B5EE /* CacheConfiguration.swift */; };
 		9AC49D5029DFC4130085B5EE /* CacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC49D4F29DFC4130085B5EE /* CacheManager.swift */; };
 		EA4925978F0B2444534A1124 /* Pods_AVPlayerCacheDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14CD59EB5BC524F2ADDBE8AE /* Pods_AVPlayerCacheDemo.framework */; };
@@ -35,6 +36,8 @@
 
 /* Begin PBXFileReference section */
 		14CD59EB5BC524F2ADDBE8AE /* Pods_AVPlayerCacheDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_AVPlayerCacheDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A4579F529E6614D00580FAE /* STHLSManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STHLSManager.swift; sourceTree = "<group>"; };
+		9A4579F929E6B0B200580FAE /* LoadingTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingTask.swift; sourceTree = "<group>"; };
 		9A9D2B0B29DFFEFD00F50371 /* STAssetResourceLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STAssetResourceLoader.swift; sourceTree = "<group>"; };
 		9A9D2B0D29E0049B00F50371 /* STMediaDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STMediaDownloader.swift; sourceTree = "<group>"; };
 		9AA1B65729D55920000F3A27 /* AVPlayerCacheDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AVPlayerCacheDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -57,7 +60,6 @@
 		9AC49D4529DC345B0085B5EE /* ResourceLoadingRequestWorker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceLoadingRequestWorker.swift; sourceTree = "<group>"; };
 		9AC49D4729DC40320085B5EE /* ContentInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentInfo.swift; sourceTree = "<group>"; };
 		9AC49D4929DC41620085B5EE /* ActionWorker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionWorker.swift; sourceTree = "<group>"; };
-		9AC49D4B29DC41980085B5EE /* CacheAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheAction.swift; sourceTree = "<group>"; };
 		9AC49D4D29DE58870085B5EE /* CacheConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheConfiguration.swift; sourceTree = "<group>"; };
 		9AC49D4F29DFC4130085B5EE /* CacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheManager.swift; sourceTree = "<group>"; };
 		BDCA9F60525399D92F990333 /* Pods-AVPlayerCacheDemo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AVPlayerCacheDemo.debug.xcconfig"; path = "Target Support Files/Pods-AVPlayerCacheDemo/Pods-AVPlayerCacheDemo.debug.xcconfig"; sourceTree = "<group>"; };
@@ -137,7 +139,6 @@
 				9AC49D4F29DFC4130085B5EE /* CacheManager.swift */,
 				9AC49D4329DC33CB0085B5EE /* CacheWorker.swift */,
 				9AC49D4D29DE58870085B5EE /* CacheConfiguration.swift */,
-				9AC49D4B29DC41980085B5EE /* CacheAction.swift */,
 			);
 			path = Cache;
 			sourceTree = "<group>";
@@ -148,6 +149,8 @@
 				9AC49D3D29DC319B0085B5EE /* STPlayerItem.swift */,
 				9A9D2B0B29DFFEFD00F50371 /* STAssetResourceLoader.swift */,
 				9A9D2B0D29E0049B00F50371 /* STMediaDownloader.swift */,
+				9A4579F929E6B0B200580FAE /* LoadingTask.swift */,
+				9A4579F529E6614D00580FAE /* STHLSManager.swift */,
 				9AC49D3F29DC326F0085B5EE /* ResourceLoader.swift */,
 				9AC49D4529DC345B0085B5EE /* ResourceLoadingRequestWorker.swift */,
 				9AC49D4129DC33890085B5EE /* MediaDownloader.swift */,
@@ -290,6 +293,7 @@
 				9AC49D3E29DC319B0085B5EE /* STPlayerItem.swift in Sources */,
 				9AC49D4629DC345B0085B5EE /* ResourceLoadingRequestWorker.swift in Sources */,
 				9AC49D4229DC33890085B5EE /* MediaDownloader.swift in Sources */,
+				9A4579F629E6614D00580FAE /* STHLSManager.swift in Sources */,
 				9AC49D4A29DC41620085B5EE /* ActionWorker.swift in Sources */,
 				9AA1B67129D55E9C000F3A27 /* HCPAudioPlayer.swift in Sources */,
 				9AA1B65B29D55920000F3A27 /* AppDelegate.swift in Sources */,
@@ -298,7 +302,7 @@
 				9AA1B65D29D55920000F3A27 /* SceneDelegate.swift in Sources */,
 				9AA1B66F29D559C9000F3A27 /* CachingPlayerItem.swift in Sources */,
 				9AC49D3329DC28530085B5EE /* HCPVideoPlayer.swift in Sources */,
-				9AC49D4C29DC41980085B5EE /* CacheAction.swift in Sources */,
+				9A4579FA29E6B0B200580FAE /* LoadingTask.swift in Sources */,
 				9AC49D4E29DE58870085B5EE /* CacheConfiguration.swift in Sources */,
 				9AC49D3529DC288A0085B5EE /* BaseView.swift in Sources */,
 			);

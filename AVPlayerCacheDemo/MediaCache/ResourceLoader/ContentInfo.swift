@@ -13,3 +13,12 @@ class ContentInfo: Codable {
     var downloadedContentLength: Int = 0
     var isByteRangeAccessSupported: Bool = false
 }
+
+class LocalCacheInfo {
+    var contentInfo: ContentInfo
+    var data: Data
+    init(contentInfo: ContentInfo, data: Data) {
+        self.contentInfo = contentInfo
+        self.data = data
+    }
+}

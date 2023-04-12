@@ -18,6 +18,15 @@ func synced(_ lock: Any, closure: () -> ()) {
     objc_sync_exit(lock)
 }
 
+var date = Date()
+func startTimer() {
+    date = Date()
+}
+
+func endTimer() {
+    print("?????\(Date().timeIntervalSince(date))")
+}
+
 fileprivate extension URL {
     func withScheme(_ scheme: String) -> URL? {
         var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
@@ -34,16 +43,22 @@ class STPlayerItem: AVPlayerItem {
     
     let cacheScheme = "STMediaCache"
     let initialURL: URL
-    
-    var cachedData: Data?
-    
     init(url: URL) {
+        self.initialURL = url
+        if url.pathExtension == "m3u8" {
+            if let asset = STHLSManager.shared.localAsset(with: url) {
+                super.init(asset: asset, automaticallyLoadedAssetKeys: nil)
+            } else {
+                super.init(asset: AVURLAsset(url: url), automaticallyLoadedAssetKeys: nil)
+                STHLSManager.shared.downloadStream(for: url)
+            }
+            return
+        }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let _ = components.scheme,
               let urlWithCustomScheme = url.withScheme(cacheScheme) else {
             fatalError("Urls without a scheme are not supported")
         }
-        self.initialURL = url
         let asset = AVURLAsset(url: urlWithCustomScheme)
         super.init(asset: asset, automaticallyLoadedAssetKeys: nil)
         asset.resourceLoader.setDelegate(self, queue: DispatchQueue.main)
@@ -62,19 +77,16 @@ class STPlayerItem: AVPlayerItem {
 
 extension STPlayerItem: AVAssetResourceLoaderDelegate {
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader, shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
-        if let cachedData = cachedData {
-            
-        } else if let url = loadingRequest.request.url,
-                  url.absoluteString.hasPrefix(cacheScheme) {
-            var loader: STAssetResourceLoader? = loaders[url.absoluteString]
-            if loader == nil {
-                loader = STAssetResourceLoader(url: initialURL)
-                //                loader?.delegate = self
-                loaders[url.absoluteString] = loader
-            }
-            loader?.addRequest(loadingRequest)
+        guard let url = loadingRequest.request.url, url.scheme == cacheScheme else {
+            return false
         }
-        
+        var loader: STAssetResourceLoader? = loaders[url.absoluteString]
+        if loader == nil {
+            loader = STAssetResourceLoader(url: initialURL)
+            //                loader?.delegate = self
+            loaders[url.absoluteString] = loader
+        }
+        loader?.addRequest(loadingRequest)
         return true
     }
     
@@ -83,7 +95,6 @@ extension STPlayerItem: AVAssetResourceLoaderDelegate {
            let loader = loaders[url.absoluteString] {
             loader.removeRequest(loadingRequest)
         }
-        
         print("STPlayerItem: loadingRequest didCancel")
     }
 }

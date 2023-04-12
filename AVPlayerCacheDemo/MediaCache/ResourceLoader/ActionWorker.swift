@@ -14,7 +14,7 @@ protocol ActionWorkerDelegate: AnyObject {
 }
 
 class ActionWorker: NSObject {
-    var actions: [CacheAction]
+    var actions: [LoadingTask]
     let url: URL
     let cacheWorker: CacheWorker
     var canSaveToCache = true
@@ -27,10 +27,10 @@ class ActionWorker: NSObject {
     }()
     var task: URLSessionDataTask?
     var startOffset: Int = 0
-    init(actions: [CacheAction], url: URL, cacheWorker: CacheWorker) {
+    init(actions: [LoadingTask], url: URL, cacheWorker: CacheWorker) {
         print("STPlayerItem: ActionWorker init")
         for action in actions {
-            print("STPlayerItem: actionType:\(action.actionType) range:\(action.range)")
+            print("STPlayerItem: taskType:\(action.taskType) range:\(action.range)")
         }
         self.actions = actions
         self.url = url
@@ -50,7 +50,7 @@ class ActionWorker: NSObject {
         guard !isCancelled, let action = popFirstActionInList() else {
             return
         }
-        if action.actionType == .local {
+        if action.taskType == .local {
             do {
                 if let data = try cacheWorker.cachedDataForRange(action.range) {
                     print("STPlayerItem: 本地缓存:\(data.count)")
@@ -81,8 +81,8 @@ class ActionWorker: NSObject {
         
     }
     
-    func popFirstActionInList() -> CacheAction? {
-        var action: CacheAction?
+    func popFirstActionInList() -> LoadingTask? {
+        var action: LoadingTask?
         synced(self) {
             if let act = self.actions.first {
                 action = act
