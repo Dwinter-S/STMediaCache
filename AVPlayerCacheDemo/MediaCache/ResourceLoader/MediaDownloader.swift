@@ -64,7 +64,7 @@ class MediaDownloader {
         actionWorker?.canSaveToCache = saveToCache
         actionWorker?.delegate = self
         actionWorker?.start()
-        print("STPlayerItem: 开始下载 from:\(fromOffset) length:\(length)")
+        print("STCachingPlayerItem: 开始下载 from:\(fromOffset) length:\(length)")
     }
     
     func downloadTaskFromOffsetToEnd(_ fromOffset: Int) {

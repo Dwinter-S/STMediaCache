@@ -103,7 +103,7 @@ class HCPAudioPlayer: NSObject {
                 // !url.absoluteString.hasSuffix(".m3u8")
                 if !url.isFileURL {
                     player.automaticallyWaitsToMinimizeStalling = false
-                    let playerItem = STPlayerItem(url: url)
+                    let playerItem = STCachingPlayerItem(url: url)
                     playerItem.audioTimePitchAlgorithm = .timeDomain
                     replacePlayerItem(with: playerItem)
                     
@@ -491,7 +491,6 @@ class HCPAudioPlayer: NSObject {
                         }
                     case .failed:
                         var error: Error
-                        print("????\(player.currentItem?.errorLog())")
                         if let err = player.currentItem?.error {
                             error = err
                         } else {

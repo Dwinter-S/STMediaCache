@@ -29,7 +29,7 @@ class CacheWorker {
     
     init(url: URL) {
         self.url = url
-        let fileURL = CacheManager.shared.cachedFileURLForURL(url)
+        let fileURL = CacheManager.shared.cachedFileURLFor(url: url)
         self.cacheConfiguration = CacheConfiguration.configurationWithFileURL(fileURL)
         self.cacheConfiguration.url = url
         let fileManager = FileManager.default

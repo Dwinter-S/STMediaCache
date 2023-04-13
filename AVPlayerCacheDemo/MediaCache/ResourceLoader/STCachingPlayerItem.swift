@@ -1,5 +1,5 @@
 //
-//  STPlayerItem.swift
+//  STCachingPlayerItem.swift
 //  AVPlayerCacheDemo
 //
 //  Created by Mac mini on 2023/4/4.
@@ -8,7 +8,7 @@
 import Foundation
 import AVFoundation
 
-protocol STPlayerItemDelegate: AnyObject {
+protocol STCachingPlayerItemDelegate: AnyObject {
     func loadUrl(_ url: URL, didFailWithError error: Error?)
 }
 
@@ -35,11 +35,10 @@ fileprivate extension URL {
     }
 }
 
-
-class STPlayerItem: AVPlayerItem {
+class STCachingPlayerItem: AVPlayerItem {
     
-    weak var delegate: STPlayerItemDelegate?
-    var loaders = [String : STAssetResourceLoader]()
+    weak var delegate: STCachingPlayerItemDelegate?
+    var loaders = [String : AssetResourceLoader]()
     
     let cacheScheme = "STMediaCache"
     let initialURL: URL
@@ -65,25 +64,16 @@ class STPlayerItem: AVPlayerItem {
         canUseNetworkResourcesForLiveStreamingWhilePaused = true
     }
     
-    func clearCache() {
-        loaders.removeAll()
-    }
-    
-    func cancelLoaders() {
-        loaders.values.forEach({ $0.cancel() })
-        loaders.removeAll()
-    }
 }
 
-extension STPlayerItem: AVAssetResourceLoaderDelegate {
+extension STCachingPlayerItem: AVAssetResourceLoaderDelegate {
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader, shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
         guard let url = loadingRequest.request.url, url.scheme == cacheScheme else {
             return false
         }
-        var loader: STAssetResourceLoader? = loaders[url.absoluteString]
+        var loader: AssetResourceLoader? = loaders[url.absoluteString]
         if loader == nil {
-            loader = STAssetResourceLoader(url: initialURL)
-            //                loader?.delegate = self
+            loader = AssetResourceLoader(url: initialURL)
             loaders[url.absoluteString] = loader
         }
         loader?.addRequest(loadingRequest)
@@ -95,13 +85,5 @@ extension STPlayerItem: AVAssetResourceLoaderDelegate {
            let loader = loaders[url.absoluteString] {
             loader.removeRequest(loadingRequest)
         }
-        print("STPlayerItem: loadingRequest didCancel")
     }
 }
-
-//extension STPlayerItem: ResourceLoaderDelegate {
-//    func didFail(resourceLoader: ResourceLoader, error: Error?) {
-//        resourceLoader.cancel()
-//        delegate?.loadUrl(resourceLoader.url, didFailWithError: error)
-//    }
-//}

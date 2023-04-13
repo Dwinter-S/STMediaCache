@@ -20,40 +20,13 @@ class CacheManager {
     var cacheDirectory: URL
     var cacheUpdateNotifyInterval: TimeInterval?
     
-    func cachedFileURLForURL(_ url: URL) -> URL {
+    func cachedFileURLFor(url: URL) -> URL {
         return cacheDirectory.appending(path: url.absoluteString.md5String()).appendingPathExtension(url.pathExtension)
     }
     
     func cacheConfiguration(with url: URL) -> CacheConfiguration {
-        let fileURL = cachedFileURLForURL(url)
+        let fileURL = cachedFileURLFor(url: url)
         return CacheConfiguration.configurationWithFileURL(fileURL)
-    }
-    
-    func mimeType(pathExtension: String) -> String {
-        if let uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
-                                                           pathExtension as NSString,
-                                                           nil)?.takeRetainedValue() {
-            if let mimetype = UTTypeCopyPreferredTagWithClass(uti, kUTTagClassMIMEType)?
-                .takeRetainedValue() {
-                return mimetype as String
-            }
-        }
-        return "application/octet-stream"
-    }
-    
-    func getContentTypeString(mimeType: String?) -> String? {
-        var contentTypeString: String?
-        if let mimeType = mimeType {
-            let contentType = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, mimeType as CFString, nil)
-            if let takeUnretainedValue = contentType?.takeUnretainedValue() {
-                contentTypeString = takeUnretainedValue as String
-            }
-        }
-        return contentTypeString
-    }
-    
-    func addCacheFile() {
-        
     }
     
     func cleanCache() {

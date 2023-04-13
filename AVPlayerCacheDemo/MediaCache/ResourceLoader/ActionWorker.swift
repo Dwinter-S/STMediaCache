@@ -28,9 +28,9 @@ class ActionWorker: NSObject {
     var task: URLSessionDataTask?
     var startOffset: Int = 0
     init(actions: [LoadingTask], url: URL, cacheWorker: CacheWorker) {
-        print("STPlayerItem: ActionWorker init")
+        print("STCachingPlayerItem: ActionWorker init")
         for action in actions {
-            print("STPlayerItem: taskType:\(action.taskType) range:\(action.range)")
+            print("STCachingPlayerItem: taskType:\(action.taskType) range:\(action.range)")
         }
         self.actions = actions
         self.url = url
@@ -53,17 +53,17 @@ class ActionWorker: NSObject {
         if action.taskType == .local {
             do {
                 if let data = try cacheWorker.cachedDataForRange(action.range) {
-                    print("STPlayerItem: 本地缓存:\(data.count)")
+                    print("STCachingPlayerItem: 本地缓存:\(data.count)")
                     delegate?.didReceiveData(data, isLocal: true)
                     DispatchQueue.global().async {
                         self.processActions()
                     }
                 } else {
-                    print("STPlayerItem: 本地缓存空")
+                    print("STCachingPlayerItem: 本地缓存空")
                 }
             } catch {
                 delegate?.didFinishedWithError(error)
-                print("STPlayerItem: 本地缓存获取失败\(error.localizedDescription)")
+                print("STCachingPlayerItem: 本地缓存获取失败\(error.localizedDescription)")
             }
             
         } else {
@@ -76,7 +76,7 @@ class ActionWorker: NSObject {
             startOffset = action.range.location
             task = session.dataTask(with: request)
             task?.resume()
-            print("STPlayerItem: 开始请求Range:\(range)")
+            print("STCachingPlayerItem: 开始请求Range:\(range)")
         }
         
     }
