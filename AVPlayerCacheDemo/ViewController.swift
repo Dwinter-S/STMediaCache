@@ -15,8 +15,11 @@ class ViewController: UIViewController {
     }
     lazy var playerView = HCPVideoPlayerBaseView(player: player)
     
+    let timeLineView = UIView()
+    let localCacheFragmentView = UIView()
+    
     let button = UIButton()
-    var curIndex = 0
+    var curIndex = -1
     let urls = ["http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Emily-%E5%8F%A3%E8%AF%ADPart%201%E5%A6%82%E4%BD%95%E8%8E%B7%E5%BE%97%E8%80%83%E5%AE%98%E5%A5%BD%E6%84%9F.mp4",
                 "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Emily-%E5%8F%A3%E8%AF%ADPart%201%E9%99%A4%E4%BA%86because%E8%BF%98%E8%83%BD%E5%A6%82%E4%BD%95%E6%8B%93%E5%B1%95.mp4",
                 "https://static.ieltsbro.com/apk/10.0.0/%E5%8F%A3%E8%AF%AD%E5%BD%95%E8%AF%BE%EF%BC%9AP2%E4%B8%B2%E9%A2%98.mp4",
@@ -30,7 +33,9 @@ class ViewController: UIViewController {
                 "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Annie-%E5%90%AC%E5%8A%9B%E6%B5%81%E7%A8%8B%E5%9B%BE.mp4",
                 "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Annie-%E5%90%AC%E5%8A%9B%E8%A1%A8%E6%A0%BC%E9%A2%98.mp4",
                 "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Annie-%E5%90%AC%E5%8A%9B%E6%84%8F%E7%BE%A4.mp4",
-                "https://video.ieltsbro.com/8cb3a1cc34fa4fca8491628c40b0f71c/4493d0dbce9c486189920f288ba4d5ea-ea46f0a493bc3ae64067a35dab78407d-ld.m3u8", "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Annie-%E5%90%AC%E5%8A%9B%E5%A4%9A%E9%80%89%E9%A2%98.mp4"].prefix(3)
+                "https://video.ieltsbro.com/8cb3a1cc34fa4fca8491628c40b0f71c/4493d0dbce9c486189920f288ba4d5ea-ea46f0a493bc3ae64067a35dab78407d-ld.m3u8", "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Annie-%E5%90%AC%E5%8A%9B%E5%A4%9A%E9%80%89%E9%A2%98.mp4"]
+    
+    let fileInfo = CachedFileInfo(url: URL(string: "https://www.baidu.com")!)
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -42,8 +47,8 @@ class ViewController: UIViewController {
 //        let str = "http://ieltsbro.oss-cn-beijing.aliyuncs.com/apk/10.0.0/Annie-%E5%90%AC%E5%8A%9B%E5%A4%9A%E9%80%89%E9%A2%98.mp4"
         
 //    let str = "https://video.ieltsbro.com/8cb3a1cc34fa4fca8491628c40b0f71c/4493d0dbce9c486189920f288ba4d5ea-ea46f0a493bc3ae64067a35dab78407d-ld.m3u8"
-        CacheManager.shared.cleanCache()
-        player.play(url: URL(string: urls[0])!)
+//        MediaCache.default.clearDiskCache()
+//        player.play(url: URL(string: urls[0])!)
         // Do any additional setup after loading the view.
         view.addSubview(playerView)
         playerView.frame = CGRect(x: 0, y: 50, width: UIScreen.main.bounds.width, height: 180)
@@ -53,15 +58,55 @@ class ViewController: UIViewController {
         button.addTarget(self, action: #selector(playNext), for: .touchUpInside)
         view.addSubview(button)
         button.frame = CGRect(x: 0, y: 300, width:  100, height: 50)
+        
+        
+        timeLineView.backgroundColor = .lightGray
+//        localCacheFragmentView.backgroundColor = .darkGray
+        
+        localCacheFragmentView.frame = timeLineView.bounds
+        timeLineView.frame = CGRect(x: 20, y: 400, width: UIScreen.main.bounds.width - 40, height: 3)
+        timeLineView.addSubview(localCacheFragmentView)
+        view.addSubview(timeLineView)
+        playNext()
     }
     
     @objc func playNext() {
+//        let maxLength = 200
+//        let location = Int(arc4random_uniform(UInt32(maxLength)))
+//        let length = Int(arc4random_uniform(UInt32(maxLength - location - 1)))
+//        let ranges = [NSRange(location: 20, length: 5), NSRange(location: 30, length: 5), NSRange(location: 15, length: 19)]
+//        for range in ranges {
+//            fileInfo.addCacheFragment(range)
+//            print(fileInfo.cachedFragments)
+//        }
         let count = urls.count
         curIndex += 1
         if curIndex == count {
             curIndex = 0
         }
-        player.play(url: URL(string: urls[curIndex])!)
+        let url = URL(string: urls[curIndex])!
+        player.play(url: url)
+        
+        timeLineView.subviews.forEach({ $0.removeFromSuperview() })
+        let cachedFileInfoURL = MediaCache.default.cachedFileInfoURLWith(url: url)
+        if FileManager.default.fileExists(atPath: cachedFileInfoURL.path),
+           let data = FileManager.default.contents(atPath: cachedFileInfoURL.path),
+           let fileInfo = try? JSONDecoder().decode(CachedFileInfo.self, from: data) {
+            let width = UIScreen.main.bounds.width - 40
+            if let contentLength = fileInfo.contentInfo?.contentLength {
+                for range in fileInfo.cachedFragments {
+                    let view = UIView()
+                    view.backgroundColor = .red
+                    timeLineView.addSubview(view)
+                    let left = width * (CGFloat(range.location) / CGFloat(contentLength))
+                    let fragmentWidth = width * (CGFloat(range.length) / CGFloat(contentLength))
+                    view.frame = CGRect(x: left, y: 0, width: fragmentWidth, height: 3)
+                }
+            }
+        }
+        
+//        fileInfo.cachedFragments
+        
     }
 
 

@@ -37,20 +37,26 @@ class LoadingRequestProcessor: NSObject {
     weak var delegate: LoadingRequestProcessorDelegate?
     let url: URL
     let loadingRequest: AVAssetResourceLoadingRequest
-    let cacheWorker: CacheWorker
+    let cacheProcessor: MediaCacheProcessor
     
     var loadingTasks: [LoadingTask] = []
     var startOffset: Int = 0
     var bufferData = Data()
     var isCancelled = false
     
+    lazy var session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        return session
+    }()
+    
     init(url: URL,
          loadingRequest: AVAssetResourceLoadingRequest,
-         cacheWorker: CacheWorker,
+         cacheProcessor: MediaCacheProcessor,
          delegate: LoadingRequestProcessorDelegate) {
         self.url = url
         self.loadingRequest = loadingRequest
-        self.cacheWorker = cacheWorker
+        self.cacheProcessor = cacheProcessor
         self.delegate = delegate
         super.init()
         if let dataRequest = loadingRequest.dataRequest {
@@ -64,15 +70,43 @@ class LoadingRequestProcessor: NSObject {
             }
             
             let range = NSRange(location: offset, length: length)
-            loadingTasks = cacheWorker.cachedDataActionsForRange(range)
+//            loadingTasks = cacheWorker.cachedDataActionsForRange(range)
+            loadingTasks = getLoadingTasksFor(range: range)
         }
     }
     
-    lazy var session: URLSession = {
-        let configuration = URLSessionConfiguration.default
-        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-        return session
-    }()
+    func getLoadingTasksFor(range: NSRange) -> [LoadingTask] {
+        guard range.isValid else { return [] }
+        let cachedFragments = cacheProcessor.cachedFileInfo.cachedFragments
+        var tasks = [LoadingTask]()
+        var preEnd = range.location
+        for fragment in cachedFragments {
+            if let intersection = fragment.intersection(range) {
+                if intersection.location > preEnd {
+                    tasks.append(LoadingTask(taskType: .remote, range: NSRange(location: preEnd, length: intersection.location - preEnd)))
+                }
+                let maxLength = 512 * 1024
+                var offset = 0
+                while offset + maxLength <= intersection.length {
+                    tasks.append(LoadingTask(taskType: .local, range: NSRange(location: intersection.location + offset, length: maxLength)))
+                    offset += maxLength
+                }
+                if offset < intersection.length {
+                    tasks.append(LoadingTask(taskType: .local, range: NSRange(location: intersection.location + offset, length: intersection.length - offset)))
+                }
+                preEnd = intersection.end
+            } else {
+                if fragment.location >= range.end {
+                    break
+                }
+                continue
+            }
+        }
+        if preEnd < range.end {
+            tasks.append(LoadingTask(taskType: .remote, range: NSRange(location: preEnd, length: range.end - preEnd)))
+        }
+        return tasks
+    }
     
     func proccessTasks() {
         guard !isCancelled else {
@@ -84,19 +118,32 @@ class LoadingRequestProcessor: NSObject {
         }
         let loadingTask = loadingTasks.removeFirst()
         if loadingTask.taskType == .local {
-            do {
-                if let data = try cacheWorker.cachedDataForRange(loadingTask.range) {
-                    startOffset += data.count
-                    fillInContentInformationRequest(loadingRequest.contentInformationRequest, response: nil)
-                    loadingRequest.dataRequest?.respond(with: data)
-                    proccessTasks()
+            cacheProcessor.cachedDataFor(range: loadingTask.range) { [weak self] data in
+                guard let self = self else { return }
+                if let data = data {
+                    print("STCachingPlayerItem:读取本地缓存成功：\(loadingTask.range)")
+                    self.startOffset += data.count
+                    self.fillInContentInformationRequest(self.loadingRequest.contentInformationRequest, response: nil)
+                    self.loadingRequest.dataRequest?.respond(with: data)
+                    self.proccessTasks()
                 } else {
                     
                 }
-            } catch {
-                
             }
+//            do {
+//                if let data = try cacheProcessor.cachedDataForRange(loadingTask.range) {
+//                    startOffset += data.count
+//                    fillInContentInformationRequest(loadingRequest.contentInformationRequest, response: nil)
+//                    loadingRequest.dataRequest?.respond(with: data)
+//                    proccessTasks()
+//                } else {
+//
+//                }
+//            } catch {
+//
+//            }
         } else {
+            print("STCachingPlayerItem:开始请求:\(loadingTask.range)")
             let fromOffset = loadingTask.range.location
             let endOffset = loadingTask.range.location + loadingTask.range.length - 1
             var request = URLRequest(url: url)
@@ -117,7 +164,7 @@ class LoadingRequestProcessor: NSObject {
     func fillInContentInformationRequest(_ contentInformationRequest: AVAssetResourceLoadingContentInformationRequest?, response: URLResponse?) {
         guard let contentInformationRequest = contentInformationRequest else { return }
         guard contentInformationRequest.contentType == nil else { return }
-        if let contentInfo = cacheWorker.cacheConfiguration.contentInfo {
+        if let contentInfo = cacheProcessor.cachedFileInfo.contentInfo {
             setContentInfo(contentInfo)
             return
         }
@@ -141,7 +188,8 @@ class LoadingRequestProcessor: NSObject {
                     contentInfo.contentType = takeUnretainedValue as String
                 }
             }
-            cacheWorker.setContentInfo(contentInfo)
+            cacheProcessor.setContentInfo(contentInfo)
+//            cacheWorker.setContentInfo(contentInfo)
             setContentInfo(contentInfo)
         }
         
@@ -163,7 +211,7 @@ class LoadingRequestProcessor: NSObject {
     
     func cacheBufferData() {
         let range = NSRange(location: startOffset, length: bufferData.count)
-        cacheWorker.cacheData(bufferData, for: range)
+        cacheProcessor.cacheData(bufferData, for: range)
         startOffset += bufferData.count
     }
     
@@ -179,7 +227,7 @@ extension LoadingRequestProcessor: URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         fillInContentInformationRequest(loadingRequest.contentInformationRequest, response: response)
         bufferData = Data()
-        cacheWorker.startWritting()
+        cacheProcessor.startWritting()
         completionHandler(.allow)
     }
     
@@ -189,20 +237,21 @@ extension LoadingRequestProcessor: URLSessionDataDelegate {
             return
         }
         cacheBufferData()
-        cacheWorker.save()
+        cacheProcessor.save()
         loadingRequest.dataRequest?.respond(with: bufferData)
         bufferData = Data()
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         cacheBufferData()
-        cacheWorker.finishWritting()
-        cacheWorker.save()
+        cacheProcessor.finishWritting()
+        cacheProcessor.save()
         loadingRequest.dataRequest?.respond(with: bufferData)
         if (error as? NSError)?.code == NSURLErrorCancelled {
             return
         }
         proccessTasks()
+        print("STCachingPlayerItem:请求完成：\(error)")
     }
     
 }

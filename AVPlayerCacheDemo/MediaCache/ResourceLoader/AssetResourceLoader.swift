@@ -12,12 +12,12 @@ import CoreServices
 class AssetResourceLoader: NSObject {
     
     let url: URL
-    let cacheWorker: CacheWorker
+    let cacheProcessor: MediaCacheProcessor
     var requestProcessors = Set<LoadingRequestProcessor>()
     
     init(url: URL) {
         self.url = url
-        self.cacheWorker = CacheWorker(url: url)
+        self.cacheProcessor = MediaCacheProcessor(url: url)
     }
     
     deinit {
@@ -28,7 +28,7 @@ class AssetResourceLoader: NSObject {
         if let _ = loadingRequest.dataRequest {
             let requestProcessor = LoadingRequestProcessor(url: url,
                                                            loadingRequest: loadingRequest,
-                                                           cacheWorker: cacheWorker,
+                                                           cacheProcessor: cacheProcessor,
                                                            delegate: self)
             requestProcessors.insert(requestProcessor)
             requestProcessor.proccessTasks()

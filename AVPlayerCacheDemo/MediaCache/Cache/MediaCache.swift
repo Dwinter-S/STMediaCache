@@ -17,7 +17,18 @@ class MediaCache {
     
     init(name: String) {
         self.diskCacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("com.dwinters.CachingPlayerItem.MediaCache.\(name)")
+        print("diskCacheDirectory:\(diskCacheDirectory.absoluteString)")
         self.ioQueue = DispatchQueue(label: "com.dwinters.CachingPlayerItem.MediaCache.ioQueue.\(name)")
+    }
+    
+    func createCacheDirectoryIfNeeded() {
+        if !fileManager.fileExists(atPath: diskCacheDirectory.path) {
+            do {
+                try fileManager.createDirectory(at: diskCacheDirectory, withIntermediateDirectories: true)
+            } catch {
+                
+            }
+        }
     }
     
     func clearDiskCache(completion handler: (()->())? = nil) {
@@ -48,5 +59,8 @@ class MediaCache {
 extension NSRange {
     var isValid: Bool {
         return location != NSNotFound && length != 0
+    }
+    var end: Int {
+        return location + length
     }
 }
